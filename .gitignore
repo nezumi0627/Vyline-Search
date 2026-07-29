@@ -2,7 +2,8 @@
 node_modules/
 
 # local workspace (binaries, outputs, tool downloads)
-data/
+data/**
+!data/README.md
 !data/.gitkeep
 
 # OS / editor
