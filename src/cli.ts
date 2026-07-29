@@ -7,6 +7,8 @@
  *   bun run search -- focus --manifest-only
  */
 
+export {};
+
 const [cmd, ...rest] = process.argv.slice(2);
 
 if (!cmd || cmd === "-h" || cmd === "--help") {
