@@ -1,32 +1,27 @@
 # Vyline-Search
 
-Desktop LINE（Themida 保護）向けの **ネイティブシンボル検索 / 逆コンパイル** ツールキット。
+Desktop LINE（Themida 保護）向けの **unpack / ネイティブシンボル検索 / 逆コンパイル** ツールキット。
 
 元は [Vyline](https://github.com/nezumi0627/Vyline) の `findNativeSymbol` / `focusRecoveredSource` を切り出したスタンドアロンリポジトリです。
 
-`sendMessage` などの単語を渡すだけで:
+## できること
 
-1. unpacked `LINE.exe` から関連文字列を列挙・分類
-2. その文字列をロードする `LEA` 命令を静的 xref スキャン
-3. 該当関数を Ghidra headless で decompile
-
-までを自動実行します。
+1. **unpack** — Themida 保護の `LINE.exe` を [unlicense](https://github.com/ergrelet/unlicense) で dump → `data/unpacked_LINE.exe`
+2. **find** — 単語（例: `sendMessage`）から文字列列挙 → LEA xref → Ghidra decompile
+3. **focus** — 全件 decompile 結果のキーワード分類（任意）
 
 ## 必要環境
 
 - [Bun](https://bun.sh) 1.1+
-- Windows（PE / PowerShell / Ghidra bat 前提）
-- JDK 21+（decompile 時）
-- Themida unpack 済み `unpacked_LINE.exe`（`--list-only` 以外）
+- Windows x64
+- Desktop LINE（unpack 時）
+- JDK 21+（decompile 時のみ）
 
 ## セットアップ
 
 ```powershell
-cd E:\projects\Vyline-Search
+cd E:\projects\Vyline-Search   # or: git clone https://github.com/nezumi0627/Vyline-Search
 bun install
-
-# unpack 済み exe を配置
-copy path\to\unpacked_LINE.exe data\unpacked_LINE.exe
 ```
 
 環境変数:
@@ -35,27 +30,28 @@ copy path\to\unpacked_LINE.exe data\unpacked_LINE.exe
 |---|---|
 | `VYLINE_SEARCH_DATA` | データルート（既定: `./data`） |
 | `VYLINE_SEARCH_EXE` | 既定の unpacked exe パス |
+| `NEZU_LINE_ROOT` | Desktop LINE ルート（既定: `%LOCALAPPDATA%\LINE`） |
 
 ## 使い方
 
 ```powershell
-# 基本: sendMessage 関連を全自動特定
-bun run find -- sendMessage
+# 1) Themida unpack（LINE を終了してから推奨）
+bun run unpack
+# bun run unpack -- --timeout 180
 
-# 文字列 + xref だけ（Ghidra 不要・高速）
+# 2) シンボル検索（文字列 + xref だけなら Ghidra 不要）
 bun run find -- sendMessage --list-only --skip-setup
 
-# 複数語
+# 3) decompile まで
+bun run find -- sendMessage
+
+# 複数語 / CLI
 bun run find -- sendMessage unsendMessage markAsRead
-
-# CLI 経由
+bun run search -- unpack
 bun run search -- find sendMessage --max-functions 10
-
-# 全件 decompile 結果の分類（任意）
-bun run focus -- --source-dir path\to\recovered\src\native\LINE.exe
 ```
 
-### 主なオプション（find）
+### find の主なオプション
 
 | オプション | 既定 | 説明 |
 |---|---|---|
@@ -66,11 +62,16 @@ bun run focus -- --source-dir path\to\recovered\src\native\LINE.exe
 | `--include-all` | off | 全 xref を decompile |
 | `--skip-setup` | off | Ghidra/JDK 自動取得スキップ |
 
-詳細は [docs/find-native-symbol.md](docs/find-native-symbol.md)。
+詳細:
+
+- [docs/unpack.md](docs/unpack.md)
+- [docs/find-native-symbol.md](docs/find-native-symbol.md)
 
 ## 出力
 
 ```text
+data/unpacked_LINE.exe
+data/unpack-meta.json
 data/out/native-search/<terms>/
   README.md
   strings.json
@@ -79,28 +80,30 @@ data/out/native-search/<terms>/
   functions/*.c
 ```
 
-`data/` 以下（exe・Ghidra キャッシュ・出力）は gitignore 済みです。
+`data/` 以下（exe・ツールキャッシュ・出力）は gitignore 済みです。
 
 ## ディレクトリ構成
 
 ```text
 Vyline-Search/
   src/
-    cli.ts                 # vyline-search エントリ
-    findNativeSymbol.ts    # メイン検索オーケストレータ
+    cli.ts
+    unpackLine.ts          # Themida unpack (unlicense)
+    findNativeSymbol.ts
     focusRecoveredSource.ts
-    paths.ts               # data/ レイアウト
-  ghidra-scripts/          # headless 用 Java
+    paths.ts
+  ghidra-scripts/
   docs/
   data/                    # ローカル作業領域（gitignore）
 ```
 
 ## Themida について
 
-このツールは **Themida unpack 自体は行いません**。`unlicense` 等で稼働中プロセスから dump した `unpacked_LINE.exe` を入力にしてください。
-
-文字列・xref は Ghidra なしで生 PE スキャン、decompile だけ Ghidra に任せます（フル auto-analysis は避け `-noanalysis`）。
+- **unpack**: unlicense が対象を起動し OEP 到達後にメモリ dump（仮想化コードは残る）
+- **find**: 文字列・xref は生 PE スキャン。decompile だけ Ghidra（`-noanalysis`）
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+unlicense 本体は別ライセンス（[ergrelet/unlicense](https://github.com/ergrelet/unlicense)）です。取得物は `data/re-tools/` に置かれ、リポジトリには含まれません。

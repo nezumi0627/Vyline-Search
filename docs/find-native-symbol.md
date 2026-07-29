@@ -9,6 +9,16 @@
 
 までを 1 コマンドで実行します。
 
+## 前提: unpacked exe
+
+先に unpack してください:
+
+```powershell
+bun run unpack
+```
+
+詳細は [unpack.md](./unpack.md)。既に dump がある場合は `data/unpacked_LINE.exe` に置くか `--exe` で指定。
+
 ## 実行
 
 ```powershell
@@ -27,5 +37,9 @@ bun run search -- find sendMessage --max-functions 10
 
 - 文字列・xref は生 PE スキャン（Ghidra 参照 DB に依存しない）
 - decompile だけ Ghidra、かつ対象関数に絞って `-noanalysis`
+- Themida 仮想化領域は decompile できないことがある
 
-元ドキュメント（Vyline monorepo）の詳細版をベースに、パスを本リポジトリ向けに更新したものです。
+## 関連
+
+- [unpack.md](./unpack.md)
+- [focus-recovered-source.md](./focus-recovered-source.md)

@@ -225,14 +225,13 @@ function ensureUnpackedExe(): string {
   throw new Error(
     [
       "unpacked_LINE.exe が見つかりません。Themida 保護を解いた実行ファイルが無いと解析できません。",
-      "unlicense はライブプロセスへの attach が必要なため、この手順だけは自動化できません:",
       "",
-      "  1. LINE.exe を通常どおり起動してログインしておく",
-      `  2. ${join(RE_TOOLS_DIR, "unlicense")} の unlicense.exe (無ければ zip を展開) を実行し、`,
-      "     稼働中の LINE.exe プロセスに対して dump する",
-      `  3. 出力された unpacked_LINE.exe を ${defaultExe} に置く`,
-      "     (または環境変数 VYLINE_SEARCH_EXE / --exe でパス指定)",
-      "  4. 本ツールを再実行する",
+      "  bun run unpack",
+      "  # または:",
+      `  #   手動で dump を ${defaultExe} に置く`,
+      "  #   --exe <path> で直接指定",
+      "",
+      "詳細: docs/unpack.md",
     ].join("\n"),
   );
 }
