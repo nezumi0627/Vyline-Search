@@ -19,7 +19,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -166,14 +165,33 @@ async function ensureUnlicense(): Promise<string> {
   mkdirSync(UNLICENSE_DIR, { recursive: true });
   const zipPath = join(UNLICENSE_DIR, UNLICENSE_ASSET);
   log(`unlicense をダウンロード中: ${UNLICENSE_URL}`);
-  const res = await fetch(UNLICENSE_URL, {
-    headers: { "User-Agent": "vyline-search-unpack" },
+
+  // Bun.fetch は大容量でハングすることがあるため curl を優先
+  const curl = Bun.spawnSync({
+    cmd: [
+      "curl.exe",
+      "-L",
+      "--retry",
+      "3",
+      "--fail",
+      "-o",
+      zipPath,
+      UNLICENSE_URL,
+    ],
+    stdout: "pipe",
+    stderr: "pipe",
   });
-  if (!res.ok || !res.body) {
-    throw new Error(`download failed: HTTP ${res.status}`);
+  if (curl.exitCode !== 0 || !existsSync(zipPath) || statSync(zipPath).size < 1_000_000) {
+    log("curl 失敗 — Bun.fetch にフォールバック");
+    const res = await fetch(UNLICENSE_URL, {
+      headers: { "User-Agent": "vyline-search-unpack" },
+    });
+    if (!res.ok || !res.body) {
+      throw new Error(`download failed: HTTP ${res.status}`);
+    }
+    await Bun.write(zipPath, res);
   }
-  await Bun.write(zipPath, res);
-  log(`展開中: ${zipPath}`);
+  log(`展開中: ${zipPath} (${(statSync(zipPath).size / 1024 / 1024).toFixed(1)} MB)`);
   const expand = Bun.spawnSync({
     cmd: [
       "powershell.exe",
@@ -250,34 +268,31 @@ async function main(): Promise<void> {
   if (running.length > 0) {
     log(
       `警告: LINE プロセスが稼働中です (pid: ${running.join(", ")})。` +
-        `競合・誤 dump を避けるため、可能なら終了してから再実行してください。`,
+        `終了してから再実行してください（Frida inject が拒否されやすい）。`,
     );
   }
 
   const unlicense = await ensureUnlicense();
 
-  const workDir = join(DATA_DIR, "unpack-work");
-  rmSync(workDir, { recursive: true, force: true });
-  mkdirSync(workDir, { recursive: true });
-
-  // インストール先を汚さないようコピーしてから unpack
-  const stagedExe = join(workDir, "LINE.exe");
-  log(`作業コピー: ${stagedExe}`);
-  copyFileSync(srcExe, stagedExe);
-
+  // LINE は同梱 DLL / Qt plugins が必須。exe 単体コピーでは起動直後に落ちて
+  // frida.ProcessNotRespondingError になる。インストールディレクトリで直接 unpack する。
+  const installDir = dirname(srcExe);
+  const peName = basename(srcExe);
   const startedAt = Date.now();
   const cmd = [
     unlicense,
-    stagedExe,
+    peName,
     `--timeout=${timeoutSec}`,
+    `--target_version=3`,
     ...(verbose ? ["--verbose"] : []),
   ];
+  log(`cwd: ${installDir}`);
   log(`実行: ${cmd.map((c) => (c.includes(" ") ? `"${c}"` : c)).join(" ")}`);
   log(`OEP 待ち timeout=${timeoutSec}s（LINE は重いので長め）`);
 
   const proc = Bun.spawnSync({
     cmd,
-    cwd: workDir,
+    cwd: installDir,
     env: {
       ...process.env,
       __COMPAT_LAYER: "RUNASINVOKER",
@@ -291,39 +306,53 @@ async function main(): Promise<void> {
   if (stdout.trim()) console.log(stdout.trimEnd());
   if (stderr.trim()) console.error(stderr.trimEnd());
 
+  // 失敗しても残骸プロセスを掃除
+  for (const pid of listRunningLinePids()) {
+    try {
+      process.kill(pid);
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (proc.exitCode !== 0) {
     throw new Error(
       [
         `unlicense が失敗しました (exit ${proc.exitCode})。`,
         "よくある原因:",
-        "  - timeout 不足 → --timeout 180 など",
-        "  - 既に LINE が起動中 → 終了して再実行",
-        "  - Themida バージョン非対応 / OEP 未到達",
-        `作業ディレクトリ: ${workDir}`,
+        "  - Frida inject 拒否 → LINE を完全終了 / 管理者で再実行",
+        "  - timeout 不足 → --timeout 300",
+        "  - アンチデバッグで即終了 → VM や別ツールが必要な場合あり",
+        `インストール先に unpacked_*.exe が残っていないか確認: ${installDir}`,
       ].join("\n"),
     );
   }
 
   const dumped =
-    pickNewestUnpacked(workDir, startedAt) ??
-    (existsSync(join(workDir, "unpacked_LINE.exe"))
-      ? join(workDir, "unpacked_LINE.exe")
+    pickNewestUnpacked(installDir, startedAt) ??
+    (existsSync(join(installDir, "unpacked_LINE.exe"))
+      ? join(installDir, "unpacked_LINE.exe")
       : null);
 
   if (!dumped || !existsSync(dumped)) {
     throw new Error(
-      `dump 出力が見つかりません。${workDir} を確認してください。\n` +
+      `dump 出力が見つかりません。${installDir} を確認してください。\n` +
         `期待: unpacked_LINE.exe`,
     );
   }
 
   mkdirSync(dirname(outPath), { recursive: true });
   if (existsSync(outPath)) rmSync(outPath);
-  // 同一ボリュームなら rename、だめなら copy
-  try {
-    renameSync(dumped, outPath);
-  } catch {
-    copyFileSync(dumped, outPath);
+  copyFileSync(dumped, outPath);
+  // インストールフォルダを汚さないよう dump を削除（--keep-work なら残す）
+  if (!keepWork) {
+    try {
+      rmSync(dumped);
+    } catch {
+      log(`警告: インストール先の dump を削除できませんでした: ${dumped}`);
+    }
+  } else {
+    log(`インストール先の dump を残しました: ${dumped}`);
   }
 
   const meta = {
@@ -339,12 +368,6 @@ async function main(): Promise<void> {
     `${JSON.stringify(meta, null, 2)}\n`,
     "utf8",
   );
-
-  if (!keepWork) {
-    rmSync(workDir, { recursive: true, force: true });
-  } else {
-    log(`作業ディレクトリを残しました: ${workDir}`);
-  }
 
   log(`done -> ${outPath} (${(meta.size / 1024 / 1024).toFixed(1)} MB)`);
   log(`次: bun run find -- sendMessage --list-only`);

@@ -45,17 +45,18 @@ bun run find -- sendMessage --list-only
 ## 動作概要
 
 1. `%LOCALAPPDATA%\LINE`（または `NEZU_LINE_ROOT`）から最新 `LINE.exe` を解決
-2. 無ければ [unlicense Releases](https://github.com/ergrelet/unlicense/releases) の x64 zip を `data/re-tools/unlicense/` へ取得
-3. 作業用に `data/unpack-work/LINE.exe` へコピー（インストール先は触らない）
-4. `unlicense.exe LINE.exe --timeout=…` を作業ディレクトリで実行
-5. 生成された `unpacked_LINE.exe` を `data/unpacked_LINE.exe` へ移動
-6. `data/unpack-meta.json` にメタ情報を保存
+2. 無ければ [unlicense Releases](https://github.com/ergrelet/unlicense/releases) の x64 zip を `data/re-tools/unlicense/` へ取得（`curl` 優先）
+3. **インストールディレクトリを cwd にして** `unlicense.exe LINE.exe` を実行  
+   （exe 単体コピーだと Qt/DLL 不足で Frida inject が失敗する）
+4. 生成された `unpacked_LINE.exe` を `data/unpacked_LINE.exe` へコピーし、インストール先の dump は削除
+5. `data/unpack-meta.json` にメタ情報を保存
 
 ## 制限
 
 - dump は **静的解析用**。多くの場合そのまま起動できる exe にはならない
 - Themida の **仮想化コード (VM)** は解除されない
-- OEP に届かない場合は `--timeout` を延ばす / LINE を終了して再試行
+- OEP に届かない / Frida 拒否時は `--timeout` 延長、LINE 完全終了、管理者実行を試す
+- 初回は unlicense 取得に数十秒かかることがある
 
 ## 関連
 
