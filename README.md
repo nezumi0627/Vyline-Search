@@ -4,6 +4,10 @@ Desktop LINE（Themida 保護）向けの **unpack / ネイティブシンボル
 
 元は [Vyline](https://github.com/nezumi0627/Vyline) の `findNativeSymbol` / `focusRecoveredSource` を切り出したスタンドアロンリポジトリです。
 
+> **免責（必読）:** 本ツールは **教育・学習・セキュリティ研究向けの実験用** です。  
+> 利用規約・法令に反する用途、第三者への攻撃、実行ファイルや秘密情報の再配布には使わないでください。  
+> 実行・解析の結果はすべて自己責任です。詳細は **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)**。
+
 ## できること
 
 1. **unpack** — Themida 保護の `LINE.exe` を [unlicense](https://github.com/ergrelet/unlicense) で dump → `data/unpacked_LINE.exe`
@@ -105,5 +109,7 @@ Vyline-Search/
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+利用目的・禁止事項・自己責任の詳細は [docs/DISCLAIMER.md](docs/DISCLAIMER.md) を参照してください。
 
 unlicense 本体は別ライセンス（[ergrelet/unlicense](https://github.com/ergrelet/unlicense)）です。取得物は `data/re-tools/` に置かれ、リポジトリには含まれません。

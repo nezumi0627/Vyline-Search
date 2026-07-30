@@ -5,6 +5,8 @@
 `findNativeSymbol` が「先に絞ってから decompile」なのに対し、こちらは
 「既に大量にある結果を後から整理する」用途です。
 
+> 教育・実験目的のみ。詳細: [DISCLAIMER.md](./DISCLAIMER.md)
+
 ## 実行
 
 ```powershell

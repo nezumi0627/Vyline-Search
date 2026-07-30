@@ -1,5 +1,8 @@
 # Local workspace (gitignored contents except this note)
 
+> 教育・実験目的のみ。`unpacked_*.exe` や解析成果物はコミット・再配布しないでください。  
+> 詳細: [../docs/DISCLAIMER.md](../docs/DISCLAIMER.md)
+
 ## Quick start
 
 ```powershell
